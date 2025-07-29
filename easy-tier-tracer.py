@@ -107,7 +107,7 @@ class Config:
     def __init__(self):
         # 初始化所有配置项为None
         self.easy_tier_peer_command = None
-        self.daily_report_time = None
+        self.daily_report_time = None  # 解析后的时间对象
         self.check_interval_seconds = None
         self.web_hook_template = None
         self.logging_level = None
@@ -120,7 +120,10 @@ class Config:
             self.easy_tier_peer_command = self._get_config('EASY_TIER_PEER_COMMAND')
             
             # 每日报告时间
-            self.daily_report_time = self._get_config('DAILY_REPORT_TIME')
+            daily_report_time_str = self._get_config('DAILY_REPORT_TIME')
+            if daily_report_time_str:
+                # 在初始化时就解析时间格式，以便尽早发现配置错误
+                self.daily_report_time = datetime.strptime(daily_report_time_str, "%H:%M").time()
             
             # 检查间隔秒数
             check_interval = self._get_config('CHECK_INTERVAL_SECONDS')
@@ -156,6 +159,12 @@ class Config:
         ]
         
         return all(config is not None for config in required_configs)
+        
+    def get_daily_report_time(self):
+        """
+        获取每日报告时间对象
+        """
+        return self.daily_report_time
 
 
 def init_database():
@@ -247,7 +256,10 @@ def should_send_daily_report(config):
     检查是否应该发送每日报告
     """
     try:
-        report_time = datetime.strptime(config.daily_report_time, "%H:%M").time()
+        report_time = config.get_daily_report_time()
+        if not report_time:
+            return False
+            
         current_time = datetime.now().time()
         
         # 计算时间差（秒）
@@ -256,9 +268,8 @@ def should_send_daily_report(config):
             (report_time.hour * 3600 + report_time.minute * 60)
         )
         
-        # 默认时间差异为30秒
-        report_time_diff_seconds = 30
-        return time_diff < report_time_diff_seconds
+        # 使用配置的检查间隔秒数作为时间差阈值
+        return time_diff < config.check_interval_seconds
     except Exception as e:
         logging.error(f"检查每日报告时间时发生错误: {e}")
         return False
@@ -288,7 +299,7 @@ def main():
     if config.is_valid():
         logging.info("配置检查通过")
         logging.info(f"EasyTier命令: {config.easy_tier_peer_command}")
-        logging.info(f"每日报告时间: {config.daily_report_time}")
+        logging.info(f"每日报告时间: {config.get_daily_report_time()}")
         logging.info(f"检查间隔秒数: {config.check_interval_seconds}")
         logging.info(f"WebHook模板: {config.web_hook_template}")
         logging.info(f"日志级别: {config.logging_level}")
@@ -345,7 +356,7 @@ def main():
             # 检查是否需要发送每日报告
             if should_send_daily_report(config):
                 all_devices_summary = "\n".join([device.summary() for device in current_devices])
-                daily_report_message = f"当前所有设备状态:\n{all_devices_summary}"
+                daily_report_message = f"每日报告\n当前所有设备状态:\n{all_devices_summary}"
                 logging.info(f"发送每日报告:\n{daily_report_message}")
                 send_webhook_message(config, daily_report_message)
             
