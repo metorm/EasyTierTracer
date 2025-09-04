@@ -5,10 +5,12 @@
 
 # 安装和运行
 
+```
 pip install -i https://mirrors.ustc.edu.cn/pypi/simple requests
 pip install -i https://mirrors.ustc.edu.cn/pypi/simple dotenv
+```
 
-在.env文件中，配置pushplus的凭证。
+在.env文件中，配置pushplus的凭证，或者修改为其他webhook.
 
 # Windows 下安装为服务
 
@@ -16,5 +18,7 @@ pip install -i https://mirrors.ustc.edu.cn/pypi/simple dotenv
 
 从 https://github.com/winsw/winsw/releases 下载 winsw，放置在项目目录中，重命名为 EasyTierTracerSrv.exe，管理员终端执行：
 
+```
 .\EasyTierTracerSrv.exe install
 .\EasyTierTracerSrv.exe start
+```
