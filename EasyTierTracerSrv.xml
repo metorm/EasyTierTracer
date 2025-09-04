@@ -1,0 +1,17 @@
+<service>
+    <id>EasyTierTracerSrv</id>
+    <name>EasyTierTracerSrv</name>
+    <description>EasyTierTracerSrv service by winsw.</description>
+    <executable>C:\APP\python\python.exe</executable>
+    <arguments>C:\APP\EasyTierTracerSrv\easy-tier-tracer.py</arguments>
+
+    <delayedAutoStart>false</delayedAutoStart>
+	<workingdirectory>C:\APP\EasyTierTracerSrv</workingdirectory>
+    <resetfailure>5 mins</resetfailure>
+
+    <onfailure action="restart" delay="30 sec"/>
+    <onfailure action="restart" delay="60 sec"/>
+    <onfailure action="restart" delay="60 sec"/>
+
+    <log mode="roll"></log>
+</service>
