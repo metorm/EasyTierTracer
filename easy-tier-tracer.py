@@ -58,7 +58,7 @@ class Device:
         ''', (self.id, self.hostname, self.ip, self.loss_rate, self.version))
         conn.commit()
     
-    def compare(self, other):
+    def compare(self, other, config):
         """
         对比自身与另一个Device对象，返回差异描述文本
         """
@@ -73,20 +73,20 @@ class Device:
         if self.ip != other.ip:
             differences.append(f"IP地址: {self.ip} -> {other.ip}")
             
-        # 丢包率比较：仅在新旧数值中至少一个大于0.02，且相对变化量大于5%时才认为有差异
+        # 丢包率比较：根据配置决定是否启用以及比较阈值
         if self.loss_rate != other.loss_rate:
-            max_rate = max(self.loss_rate, other.loss_rate)
-            min_rate = min(self.loss_rate, other.loss_rate)
-            
-            # 判断是否至少一个大于0.02
-            if max_rate > 0.02:
-                # 计算相对变化量
-                if max_rate > 0:  # 避免除零错误
-                    relative_change = (max_rate - min_rate) / max_rate
-                    if relative_change > 0.05:  # 大于5%
-                        differences.append(f"丢包率: {self.loss_rate} -> {other.loss_rate}")
-                elif min_rate > 0:  # 如果max_rate为0但min_rate大于0
-                    differences.append(f"丢包率: {self.loss_rate} -> {other.loss_rate}")
+            # 检查是否启用了丢包率提醒
+            if config.loss_rate_alert_enabled:
+                max_rate = max(self.loss_rate, other.loss_rate)
+                min_rate = min(self.loss_rate, other.loss_rate)
+                
+                # 判断是否至少一个大于配置的阈值
+                if max_rate > config.loss_rate_threshold:
+                    # 计算相对变化量
+                    if max_rate > 0:  # 避免除零错误
+                        relative_change = (max_rate - min_rate) / max_rate
+                        if relative_change > config.loss_rate_change_threshold:
+                            differences.append(f"丢包率: {self.loss_rate} -> {other.loss_rate}")
             
         if self.version != other.version:
             differences.append(f"版本: {self.version} -> {other.version}")
@@ -111,6 +111,10 @@ class Config:
         self.check_interval_seconds = None
         self.web_hook_template = None
         self.logging_level = None
+        # 丢包率相关配置项
+        self.loss_rate_threshold = None
+        self.loss_rate_change_threshold = None
+        self.loss_rate_alert_enabled = None
         
         try:
             # 加载.env文件
@@ -134,6 +138,17 @@ class Config:
             
             # Logging级别
             self.logging_level = self._get_config('LOGGING_LEVEL')
+            
+            # 丢包率相关配置
+            loss_rate_threshold = self._get_config('LOSS_RATE_THRESHOLD')
+            self.loss_rate_threshold = float(loss_rate_threshold) if loss_rate_threshold is not None else 0.02
+            
+            loss_rate_change_threshold = self._get_config('LOSS_RATE_CHANGE_THRESHOLD')
+            self.loss_rate_change_threshold = float(loss_rate_change_threshold) if loss_rate_change_threshold is not None else 0.05
+            
+            loss_rate_alert_enabled = self._get_config('LOSS_RATE_ALERT_ENABLED')
+            self.loss_rate_alert_enabled = loss_rate_alert_enabled.lower() != 'false' if loss_rate_alert_enabled is not None else True
+            
         except Exception:
             # 任何异常都将导致配置初始化失败，保持所有字段为None
             pass
@@ -333,7 +348,7 @@ def main():
                 else:
                     # 检查设备是否有变化
                     stored_device = stored_devices_dict[device.id]
-                    diff = stored_device.compare(device)
+                    diff = stored_device.compare(device, config)
                     if diff:
                         change_messages.append(diff)
             
