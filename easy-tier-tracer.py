@@ -274,17 +274,16 @@ def should_send_daily_report(config):
         report_time = config.get_daily_report_time()
         if not report_time:
             return False
-            
+
         current_time = datetime.now().time()
-        
+
         # 计算时间差（秒）
-        time_diff = abs(
-            (current_time.hour * 3600 + current_time.minute * 60 + current_time.second) -
-            (report_time.hour * 3600 + report_time.minute * 60)
-        )
-        
+        time_diff = (
+            current_time.hour * 3600 + current_time.minute * 60 + current_time.second
+        ) - (report_time.hour * 3600 + report_time.minute * 60)
+
         # 使用配置的检查间隔秒数作为时间差阈值
-        return time_diff < config.check_interval_seconds
+        return (abs(time_diff) <= config.check_interval_seconds) and time_diff >= 0
     except Exception as e:
         logging.error(f"检查每日报告时间时发生错误: {e}")
         return False
